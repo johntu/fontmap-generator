@@ -1,22 +1,77 @@
 <template>
-  <div class="container mx-auto">
-    <h1 class="text-2xl">Font map generator</h1>
-    <input type="file" @change="onFile" />
-    <br />
-    <label for="mapSize">Map size:</label>
-    <input id="mapSize" type="number" v-model="opts.mapSize" />
-    <label for="fontSize">Font size:</label>
-    <input id="fontSize" type="number" v-model="opts.fontSize" />
-    <label for="horSpacing">Horizontal spacing:</label>
-    <input id="horSpacing" type="number" v-model="opts.horSpacing" />
-    <label for="displayBorder">Display border:</label>
-    <input id="displayBorder" type="checkbox" v-model="opts.displayBorder" @change="render()" />
-    {{opts.displayBorder}}
-    <br />
-    <textarea class="w-1/2" height="4" v-bind:value="fontMapJson" readonly></textarea>
-    <div class="w-1/2 bg-black">
-      <img class="w-full" v-bind:src="fontMapSrc" />
-    </div>
+  <div class="container mx-auto pt-4">
+    <LayoutCard>
+      <h1 class="text-2xl mb-1">Font map generator</h1>
+      <FileSelect :change="onFile"></FileSelect>
+    </LayoutCard>
+    <LayoutCard v-if="font">
+      <div class="grid xs:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+        <div>
+          <label class="block font-bold" for="mapSize">Map size</label>
+          <input
+            class="w-full bg-gray-100"
+            id="mapSize"
+            type="number"
+            v-model="opts.mapSize"
+          />
+        </div>
+        <div>
+          <label class="block font-bold" for="fontSize">Font size</label>
+          <input
+            class="w-full bg-gray-100"
+            id="fontSize"
+            type="number"
+            v-model="opts.fontSize"
+          />
+        </div>
+        <div>
+          <label class="block font-bold" for="horSpacing"
+            >Horizontal spacing</label
+          >
+          <input
+            class="w-full bg-gray-100"
+            id="horSpacing"
+            type="number"
+            v-model="opts.horSpacing"
+          />
+        </div>
+        <div>
+          <label class="block font-bold" for="displayBorder"
+            >Display border</label
+          >
+          <input
+            id="displayBorder"
+            type="checkbox"
+            v-model="opts.displayBorder"
+            @change="render()"
+          />
+        </div>
+      </div>
+      <div>
+        <div>
+          <label class="block font-bold" for="characters">Characters</label>
+          <input
+            class="w-full bg-gray-100"
+            id="characters"
+            type="text"
+            v-model="opts.characters"
+          />
+        </div>
+      </div>
+    </LayoutCard>
+    <LayoutCard v-if="font" class="grid md:grid-cols-2 gap-4">
+      <div class="flex flex-col">
+        <label for="json" class="block font-bold">Font data (JSON)</label>
+        <textarea
+          class="flex-grow"
+          v-bind:value="fontMapJson"
+          readonly
+        ></textarea>
+      </div>
+      <div class="bg-black">
+        <img class="w-full" v-bind:src="fontMapSrc" />
+      </div>
+    </LayoutCard>
   </div>
 </template>
 
@@ -144,7 +199,7 @@ function renderImage(opts, font, fontData, characterData) {
       }
       if (i * mapWidth + j < opts.characters.length) {
         char = opts.characters[i * mapWidth + j];
-        glyph = font.glyphs.glyphs[characterData[char].index];
+        glyph = font.charToGlyph(char);
         path = glyph.getPath(
           j * charWidth -
             characterData[char].leftSideBearing +
@@ -161,15 +216,26 @@ function renderImage(opts, font, fontData, characterData) {
   return canvas.toDataURL();
 }
 
+import FileSelect from "./components/FileSelect.vue";
+import LayoutCard from "./components/LayoutCard.vue";
+
+import robotoFont from "./assets/Roboto-Bold.ttf";
+
+var debug = false;
+
 export default {
   name: "App",
+  components: {
+    FileSelect,
+    LayoutCard,
+  },
   data: () => {
     return {
       opts: {
         mapSize: 1024,
         fontSize: 90,
         horSpacing: 4,
-        displayBorder: true,
+        displayBorder: false,
         characters:
           "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,:;!?\"'@#$%&+-*/\\()[]{}]",
       },
@@ -179,6 +245,23 @@ export default {
       fontMapJson: null,
       fontMapSrc: null,
     };
+  },
+  mounted: function () {
+    if (debug) {
+      var rawFile = new XMLHttpRequest();
+      rawFile.open("GET", robotoFont, true);
+      rawFile.responseType = "arraybuffer";
+      rawFile.onreadystatechange = () => {
+        if (rawFile.readyState === 4) {
+          if (rawFile.status === 200 || rawFile.status == 0) {
+            this.font = parse(rawFile.response);
+
+            this.render();
+          }
+        }
+      };
+      rawFile.send(null);
+    }
   },
   methods: {
     onFile(event) {
@@ -216,6 +299,9 @@ export default {
       this.render();
     },
     "opts.displayBorder": function () {
+      this.render();
+    },
+    "opts.characters": function () {
       this.render();
     },
   },
